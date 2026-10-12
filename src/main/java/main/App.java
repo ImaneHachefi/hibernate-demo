@@ -1,14 +1,18 @@
 package main;
 
+import main.model.Categorie;
 import main.model.Produit;
 import org.h2.tools.Server;
+
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Scanner;
 
 public class App {
+
     public static void main(String[] args) {
 
         try {
@@ -18,16 +22,16 @@ public class App {
             System.out.println("Erreur lors du démarrage de la console H2");
             e.printStackTrace();
         }
-        // Création de l'EntityManagerFactory
+
         EntityManagerFactory emf = Persistence.createEntityManagerFactory("hibernate-demo");
 
-        // Insertion de produits
         insererProduits(emf);
-
-        // Lecture des produits
         lireProduits(emf);
 
-        // Fermeture de l'EntityManagerFactory
+        // Pause pour garder la base en mémoire ouverte (captures H2)
+        System.out.println("\nAppuie sur Entrée pour quitter...");
+        new Scanner(System.in).nextLine();
+
         emf.close();
     }
 
@@ -36,18 +40,19 @@ public class App {
         try {
             em.getTransaction().begin();
 
-            // Création de quelques produits
-            Produit p1 = new Produit("Laptop", new BigDecimal("999.99"));
-            Produit p2 = new Produit("Smartphone", new BigDecimal("499.99"));
-            Produit p3 = new Produit("Tablette", new BigDecimal("299.99"));
+            Categorie informatique = new Categorie("Informatique");
+            Categorie mobile = new Categorie("Mobile");
 
-            // Persistance des produits
-            em.persist(p1);
-            em.persist(p2);
-            em.persist(p3);
+            informatique.ajouterProduit(new Produit("Laptop", new BigDecimal("999.99")));
+            mobile.ajouterProduit(new Produit("Smartphone", new BigDecimal("499.99")));
+            mobile.ajouterProduit(new Produit("Tablette", new BigDecimal("299.99")));
+
+            // cascade = ALL : les produits sont persistés avec leur catégorie
+            em.persist(informatique);
+            em.persist(mobile);
 
             em.getTransaction().commit();
-            System.out.println("Produits insérés avec succès !");
+            System.out.println("Catégories et produits insérés avec succès !");
         } catch (Exception e) {
             if (em.getTransaction().isActive()) {
                 em.getTransaction().rollback();
@@ -61,23 +66,37 @@ public class App {
     private static void lireProduits(EntityManagerFactory emf) {
         EntityManager em = emf.createEntityManager();
         try {
-            // Requête JPQL pour récupérer tous les produits
+            // 1. Catégories avec leurs produits
+            System.out.println("\nCatégories et leurs produits :");
+            List<Categorie> categories = em.createQuery(
+                    "SELECT DISTINCT c FROM Categorie c LEFT JOIN FETCH c.produits",
+                    Categorie.class).getResultList();
+            for (Categorie c : categories) {
+                System.out.println(c);
+                for (Produit p : c.getProduits()) {
+                    System.out.println("   - " + p);
+                }
+            }
+
+            // 2. Tous les produits
+            System.out.println("\nListe des produits :");
             List<Produit> produits = em.createQuery("SELECT p FROM Produit p", Produit.class)
                     .getResultList();
-
-            System.out.println("\nListe des produits :");
             for (Produit produit : produits) {
                 System.out.println(produit);
             }
 
-            // Recherche d'un produit par ID
+            // 3. Produits d'une catégorie
+            System.out.println("\nProduits de la catégorie 'Mobile' :");
+            em.createQuery("SELECT p FROM Produit p WHERE p.categorie.nom = :nom", Produit.class)
+                    .setParameter("nom", "Mobile")
+                    .getResultList()
+                    .forEach(System.out::println);
+
+            // 4. Recherche par ID
             System.out.println("\nRecherche du produit avec ID=2 :");
             Produit produit = em.find(Produit.class, 2L);
-            if (produit != null) {
-                System.out.println(produit);
-            } else {
-                System.out.println("Produit non trouvé");
-            }
+            System.out.println(produit != null ? produit : "Produit non trouvé");
         } finally {
             em.close();
         }

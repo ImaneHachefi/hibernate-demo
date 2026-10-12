@@ -1,9 +1,6 @@
 package main.model;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
+import javax.persistence.*;
 import java.math.BigDecimal;
 
 @Entity
@@ -58,4 +55,11 @@ public class Produit {
                 ", prix=" + prix +
                 '}';
     }
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "categorie_id")
+    private Categorie categorie;
+
+    public Categorie getCategorie() { return categorie; }
+    public void setCategorie(Categorie categorie) { this.categorie = categorie; }
 }
